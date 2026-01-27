@@ -12,7 +12,6 @@ import { Link } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { CartDialog } from "@/components/CartDialog";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
-import { DemoControlPanel } from "@/components/DemoControlPanel";
 
 const Catalog = () => {
   const [searchQuery, setSearchQuery] = useState("");

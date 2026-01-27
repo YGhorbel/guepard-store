@@ -19,7 +19,6 @@ RUN bun install --frozen-lockfile
 WORKDIR /app
 COPY components/api ./api
 COPY components/frontend ./frontend
-COPY demo ./demo
 
 # Generate Prisma client
 WORKDIR /app/api

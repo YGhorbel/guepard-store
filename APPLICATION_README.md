@@ -2,7 +2,7 @@
 
 This document provides detailed technical information about the GuepardStore demo application itself.
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Overview](#overview)
 - [Architecture](#architecture)
@@ -15,17 +15,16 @@ This document provides detailed technical information about the GuepardStore dem
 - [Docker Deployment](#docker-deployment)
 - [Troubleshooting](#troubleshooting)
 
-## 🎯 Overview
+## Overview
 
-GuepardStore is a full-stack e-commerce demo application designed to showcase Guepard's git-like database features. It includes:
+GuepardStore is a full-stack e-commerce application. It includes:
 
 - **Public Product Catalog**: Browse and search products
 - **Shopping Cart**: Add items and manage quantities
 - **Order Management**: Place orders with customer information
 - **Admin Dashboard**: Manage products and inventory
-- **Demo Control Panel**: Interactive Guepard feature management
 
-## 🏗️ Architecture
+## Architecture
 
 The application follows a modern microservices architecture:
 
@@ -43,7 +42,7 @@ The application follows a modern microservices architecture:
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### **Frontend**
 - **Framework**: React 18 with TypeScript
@@ -68,10 +67,10 @@ The application follows a modern microservices architecture:
 - **Seeding**: Prisma Seed
 - **Versioning**: Guepard PaaS
 
-## 📁 Project Structure
+## Project Structure
 
 ```
-guepardstore-demo/
+guepard-demo-mcp/
 ├── components/
 │   ├── api/                    # Backend API
 │   │   ├── src/
@@ -80,11 +79,10 @@ guepardstore-demo/
 │   │   │   └── index.ts        # Server entry point
 │   │   ├── prisma/
 │   │   │   ├── schema.prisma   # Database schema
-│   │   │   ├── migrations/     # Database migrations
 │   │   │   └── seed.ts         # Database seeding
 │   │   ├── package.json
 │   │   └── Dockerfile
-│   └── frontend/               # React Frontend
+│   └── frontend/               # React frontend
 │       ├── src/
 │       │   ├── components/     # React components
 │       │   ├── pages/          # Page components
@@ -94,17 +92,12 @@ guepardstore-demo/
 │       │   └── App.tsx         # App entry point
 │       ├── package.json
 │       └── Dockerfile
-├── demo/                       # Demo scripts and patches
-│   └── discount-feature/
-│       ├── apply-discount-feature.sh
-│       └── rollback-discount-feature.sh
-├── .github/workflows/          # GitHub Actions
 ├── docker-compose.yml          # Docker orchestration
 ├── Dockerfile.single           # Single container setup
 └── README.md                   # Main documentation
 ```
 
-## 🚀 Setup Instructions
+## Setup Instructions
 
 ### **Prerequisites**
 
@@ -117,8 +110,8 @@ guepardstore-demo/
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/guepardstore-demo
-cd guepardstore-demo
+git clone https://github.com/guepard/guepard-demo-mcp
+cd guepard-demo-mcp
 
 # Install backend dependencies
 cd components/api
@@ -175,7 +168,7 @@ bun run dev
 - Frontend: http://localhost:8080
 - Backend API: http://localhost:3001
 
-## 📡 API Documentation
+## API Documentation
 
 ### **Base URL**
 ```
@@ -208,15 +201,6 @@ GET    /orders             # List all orders
 GET    /orders/:id         # Get order by ID
 POST   /orders             # Create new order
 PUT    /orders/:id         # Update order status
-```
-
-#### **Demo Control**
-```bash
-GET    /demo-control/status              # Get database status
-GET    /demo-control/feature-status/:name # Get feature status
-POST   /demo-control/manage-feature      # Apply/rollback features
-POST   /demo-control/switch-db           # Switch database connection
-POST   /demo-control/run-seed            # Run database seeding
 ```
 
 ### **Request/Response Examples**
@@ -258,7 +242,7 @@ Content-Type: application/json
 }
 ```
 
-## 🗄️ Database Schema
+## Database Schema
 
 ### **Models**
 
@@ -322,11 +306,7 @@ model OrderItem {
 }
 ```
 
-### **Feature Branch Schema Variations**
-
-The discount feature adds a `discountPrice` field to the Product model, demonstrating schema evolution with Guepard.
-
-## 🔗 Frontend Integration
+## Frontend Integration
 
 ### **API Service Layer**
 
@@ -362,29 +342,27 @@ export const createProduct = async (productData: ProductFormData): Promise<Produ
 ```
 src/
 ├── components/
-│   ├── ProductCard.tsx      # Product display component
-│   ├── ProductForm.tsx      # Product creation/editing
-│   ├── Cart.tsx            # Shopping cart
-│   ├── DemoControlPanel.tsx # Guepard feature management
-│   └── ...
+│   ├── ProductCard.tsx       # Product display component
+│   ├── ProductForm.tsx       # Product creation/editing
+│   ├── CartDialog.tsx        # Shopping cart dialog
+│   ├── SearchBar.tsx         # Catalog search
+│   └── ThemeSwitcher.tsx     # Theme toggle
 ├── pages/
-│   ├── Home.tsx            # Product catalog
-│   ├── Admin.tsx            # Admin dashboard
-│   └── ...
+│   ├── Catalog.tsx           # Product catalog
+│   ├── Admin.tsx             # Admin dashboard
+│   └── NotFound.tsx          # 404 page
 └── contexts/
-    ├── CartContext.tsx      # Shopping cart state
-    └── ThemeContext.tsx     # Theme management
+    ├── CartContext.tsx       # Shopping cart state
+    └── ThemeContext.tsx      # Theme management
 ```
 
-## 🐳 Docker Deployment
+## Docker Deployment
 
-### **Single Container (Feature Patches Work)**
+### **Single Container**
 
 ```bash
-# Build and run single container
 docker-compose -f docker-compose.single.yml up --build
 
-# Access points:
 # Frontend: http://localhost:8080
 # Backend: http://localhost:3001
 ```
@@ -413,7 +391,7 @@ docker build -t guepard-frontend .
 docker run -p 8080:8080 guepard-frontend
 ```
 
-## 🔧 Environment Variables
+## Environment Variables
 
 ### **Backend (.env)**
 ```env
@@ -444,32 +422,29 @@ VITE_PORT=8080
 VITE_HOST=::
 ```
 
-## 🚨 Troubleshooting
+## Troubleshooting
 
 ### **Common Issues**
 
 #### **Database Connection Issues**
-```bash
-❌ Can't reach database server
-```
+**Error:** Can't reach database server
+
 **Solutions:**
 - Verify `DATABASE_URL` in `.env` file
 - Check Guepard deployment status
 - Ensure network connectivity
 
 #### **CORS Errors**
-```bash
-❌ Cross-Origin Request Blocked
-```
+**Error:** Cross-Origin Request Blocked
+
 **Solutions:**
 - Check `FRONTEND_URL` in backend `.env`
 - Verify frontend is running on correct port
 - Update CORS configuration in `index.ts`
 
 #### **Prisma Issues**
-```bash
-❌ Prisma Client not generated
-```
+**Error:** Prisma Client not generated
+
 **Solutions:**
 ```bash
 cd components/api
@@ -478,9 +453,8 @@ bunx prisma db push
 ```
 
 #### **Port Conflicts**
-```bash
-❌ Port already in use
-```
+**Error:** Port already in use
+
 **Solutions:**
 - Check what's using the ports: `lsof -i :3001` or `lsof -i :8080`
 - Change ports in `.env` files
@@ -515,7 +489,7 @@ bunx prisma db push
 bunx prisma db seed
 ```
 
-## 📊 Performance Considerations
+## Performance Considerations
 
 ### **Database Optimization**
 - Use database indexes for frequently queried fields
@@ -532,7 +506,7 @@ bunx prisma db seed
 - Use HTTP caching headers
 - Add rate limiting for production
 
-## 🔒 Security Considerations
+## Security Considerations
 
 ### **API Security**
 - Input validation and sanitization
@@ -545,7 +519,7 @@ bunx prisma db seed
 - Database connection encryption
 - Secure password handling
 
-## 📈 Monitoring and Logging
+## Monitoring and Logging
 
 ### **Application Logs**
 - Backend: Console logging with timestamps
@@ -557,7 +531,7 @@ bunx prisma db seed
 - Database query performance
 - Frontend bundle size analysis
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
@@ -565,7 +539,7 @@ bunx prisma db seed
 4. Test thoroughly
 5. Submit a pull request
 
-## 📞 Support
+## Support
 
 For application-specific issues:
 - Check this documentation

@@ -1,39 +1,39 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import productRoutes from './routes/productRoutes';
 import categoryRoutes from './routes/categoryRoutes';
 import orderRoutes from './routes/orderRoutes';
-import demoControlRoutes from './routes/demoControlRoutes';
 
 const app = express();
 const port = process.env.PORT || 3001;
-const host = process.env.HOST || '0.0.0.0'; 
+const host = process.env.HOST || '0.0.0.0';
 
-const allowedOrigins = [// Vite default ports
+const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:8080',
-  process.env.FRONTEND_URL || 'http://localhost:8080'
-];
+  'http://127.0.0.1:8080',
+  process.env.FRONTEND_URL || ''
+].filter(Boolean);
 
-/*app.use(cors({
-  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+app.use(cors({
+  origin: (origin, cb) => {
     if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
+      cb(null, true);
     } else {
-      callback(new Error('This origin is not allowed by CORS'));
+      cb(null, false);
     }
-  }
-}));*/
-
-app.use(cors());
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 app.use(express.json());
 
 app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
-app.use('/api/orders', orderRoutes); 
-app.use('/api/demo-control', demoControlRoutes);
+app.use('/api/orders', orderRoutes);
 
 app.listen(Number(port), host, () => {
-  console.log(`🐆 Guepard Demo API is running on http://localhost:${port}`);
+  console.log(`API running on http://localhost:${port}`);
 });

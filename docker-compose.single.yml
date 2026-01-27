@@ -21,7 +21,6 @@ services:
     volumes:
       - ./components/api/src:/app/api/src
       - ./components/frontend/src:/app/frontend/src
-      - ./demo:/app/demo
     networks:
       - guepard-network
     restart: unless-stopped
