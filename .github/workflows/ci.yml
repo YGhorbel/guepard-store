@@ -156,8 +156,8 @@ jobs:
 
       - name: Run DB invariants tests
         env:
-          # Example: CI_DATABASE_URL_PREFIX could be postgres://user:pass@host:5432/
-          DATABASE_URL: ${{ secrets.CI_DATABASE_URL_PREFIX }}${{ env.DB_NAME }}
+          # Full CI database URL provided via GitHub secrets
+          DATABASE_URL: ${{ secrets.CI_DATABASE_URL }}
         working-directory: components/api
         run: |
           echo "Running Prisma DB invariants tests against $DATABASE_URL"
