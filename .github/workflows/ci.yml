@@ -187,6 +187,48 @@ jobs:
           echo "clone_deployment_id=$CLONE_DEPLOYMENT_ID" >> "$GITHUB_OUTPUT"
           echo "db_connection_string=$CONNECTION_STRING" >> "$GITHUB_OUTPUT"
 
+      - name: Wait for clone compute to be healthy
+        run: |
+          set -e
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          echo "Waiting for compute of clone deployment $CLONE_DEPLOYMENT_ID to be healthy..."
+          for i in {1..12}; do
+            STATUS_JSON=$(guepard compute status -x "$CLONE_DEPLOYMENT_ID" --json || true)
+            echo "$STATUS_JSON" | jq '.' || true
+            HEALTHY=$(echo "$STATUS_JSON" | jq -r '.status // empty')
+            if [ "$HEALTHY" = "Healthy" ]; then
+              echo "Compute is healthy."
+              exit 0
+            fi
+            echo "Attempt $i/12: compute not healthy yet (status: $HEALTHY). Sleeping 10s..."
+            sleep 10
+          done
+          echo "Error: compute did not become healthy in time."
+          exit 1
+
+      - name: Install dependencies (api)
+        env:
+          DATABASE_URL: ${{ env.DB_CONNECTION_STRING }}
+        working-directory: components/api
+        run: pnpm install --frozen-lockfile
+
+      - name: Run Prisma migrations against clone
+        env:
+          DATABASE_URL: ${{ env.DB_CONNECTION_STRING }}
+        working-directory: components/api
+        run: |
+          echo "Applying Prisma migrations to clone database..."
+          bunx prisma migrate deploy
+
+      - name: Seed data with new format after migrations
+        env:
+          DATABASE_URL: ${{ env.DB_CONNECTION_STRING }}
+        working-directory: components/api
+        run: |
+          echo "Seeding test data with new format..."
+          bunx prisma generate
+          bun run prisma/integration/seed.ts
+
       - name: Run DB invariants tests
         env:
           # Use Guepard clone compute connection string directly as DATABASE_URL
@@ -194,7 +236,6 @@ jobs:
         working-directory: components/api
         run: |
           echo "Running Prisma DB invariants tests against $DATABASE_URL"
-          pnpm install --frozen-lockfile
           pnpm test:db
 
       - name: CI summary - database
@@ -211,7 +252,10 @@ jobs:
             echo "  - \`guepard list deployments --json\` (select base deployment)";
             echo "  - \`guepard list -x \$BASE_DEPLOYMENT_ID branches --json\` (main branch snapshot)";
             echo "  - \`guepard clone -x \$BASE_DEPLOYMENT_ID -s \$SNAPSHOT_ID --json\` (create clone)";
-            echo "  - Prisma invariants against clone compute connection string";
+            echo "  - Wait for compute to be healthy";
+            echo "  - \`prisma migrate deploy\` (apply migrations to clone)";
+            echo "  - Seed test data with new format";
+            echo "  - Prisma invariants tests against migrated + seeded clone";
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Drop CI database
