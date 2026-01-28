@@ -234,38 +234,39 @@ jobs:
           echo "CLONE_DEPLOYMENT_ID=$CLONE_DEPLOYMENT_ID" >> "$GITHUB_ENV"
           echo "clone_deployment_id=$CLONE_DEPLOYMENT_ID" >> "$GITHUB_OUTPUT"
 
-      - name: Wait for clone compute to be healthy and ensure connection string
+      - name: Wait for clone compute to be healthy
         id: compute_ready
         run: |
           set -e
           eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
           echo "Waiting for compute of clone deployment $CLONE_DEPLOYMENT_ID to be healthy..."
-          for i in {1..12}; do
-            STATUS_JSON=$(guepard compute -x "$CLONE_DEPLOYMENT_ID" status --json || true)
-            echo "$STATUS_JSON" | jq '.' || true
-            HEALTHY=$(echo "$STATUS_JSON" | jq -r '.status // empty')
-            if [ "$HEALTHY" = "Healthy" ]; then
-              echo "Compute is healthy."
-              if [ -z "${DB_CONNECTION_STRING:-}" ] || [ "${DB_CONNECTION_STRING:-}" = "null" ]; then
-                CONNECTION_STRING=$(echo "$STATUS_JSON" | jq -r '.connection_string // empty')
-                if [ -n "$CONNECTION_STRING" ] && [ "$CONNECTION_STRING" != "null" ]; then
-                  echo "DB_CONNECTION_STRING=$CONNECTION_STRING" >> "$GITHUB_ENV"
-                  echo "db_connection_string=$CONNECTION_STRING" >> "$GITHUB_OUTPUT"
-                  echo "Connection string captured from compute status"
-                else
-                  echo "Error: connection_string still not available after compute is healthy"
-                  exit 1
+          echo "Initial wait for compute to start initializing..."
+          sleep 15
+          for i in {1..20}; do
+            STATUS_JSON=$(guepard compute -x "$CLONE_DEPLOYMENT_ID" status --json 2>&1 || echo '{"error": "command_failed"}')
+            if echo "$STATUS_JSON" | jq -e '.status' > /dev/null 2>&1; then
+              HEALTHY=$(echo "$STATUS_JSON" | jq -r '.status // empty')
+              if [ "$HEALTHY" = "Healthy" ]; then
+                echo "Compute is healthy."
+                # Update connection string from compute status if available
+                COMPUTE_CONNECTION=$(echo "$STATUS_JSON" | jq -r '.connection_string // empty')
+                if [ -n "$COMPUTE_CONNECTION" ] && [ "$COMPUTE_CONNECTION" != "null" ]; then
+                  echo "Updating connection string from compute status"
+                  echo "DB_CONNECTION_STRING=$COMPUTE_CONNECTION" >> "$GITHUB_ENV"
+                  echo "db_connection_string=$COMPUTE_CONNECTION" >> "$GITHUB_OUTPUT"
                 fi
-              else
-                echo "Connection string already set from clone response"
-              fi
-              echo "Final connection string: $(echo "$DB_CONNECTION_STRING" | cut -c1-50)..."
-              exit 0
+                echo "Final connection string: $(echo "$DB_CONNECTION_STRING" | cut -c1-50)..."
+                exit 0
+            elif echo "$STATUS_JSON" | grep -q "502\|Bad Gateway\|Internal server error"; then
+              echo "Attempt $i/20: Compute API returned error (still initializing), waiting 10s..."
+            else
+              echo "Attempt $i/20: Compute status: $(echo "$STATUS_JSON" | head -c 100)..."
             fi
-            echo "Attempt $i/12: compute not healthy yet (status: $HEALTHY). Sleeping 10s..."
             sleep 10
           done
-          echo "Error: compute did not become healthy in time."
+          echo "Error: compute did not become healthy in time (waited ~3.5 minutes)"
+          echo "Last status check response:"
+          echo "$STATUS_JSON" | head -20
           exit 1
 
       - name: Install dependencies (api)
