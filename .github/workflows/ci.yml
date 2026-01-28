@@ -181,18 +181,46 @@ jobs:
             --branch-id "$BRANCH_ID" \
             --json || true)
           echo "$COMMIT_JSON" | jq '.' > /tmp/commit.json || true
-          # Handle both array and object responses
+          # Handle both array and object responses - extract commit_id which serves as snapshot_id
           if echo "$COMMIT_JSON" | jq -e 'type == "array"' > /dev/null 2>&1; then
-            SNAPSHOT_ID=$(echo "$COMMIT_JSON" | jq -r '.[0].snapshot_id // .[0].id // empty')
+            COMMIT_ID=$(echo "$COMMIT_JSON" | jq -r '.[0].commit_id // empty')
           else
-            SNAPSHOT_ID=$(echo "$COMMIT_JSON" | jq -r '.snapshot_id // .id // empty')
+            COMMIT_ID=$(echo "$COMMIT_JSON" | jq -r '.commit_id // empty')
           fi
-          if [ -z "$SNAPSHOT_ID" ] || [ "$SNAPSHOT_ID" = "null" ]; then
+          if [ -z "$COMMIT_ID" ] || [ "$COMMIT_ID" = "null" ]; then
             echo "Failed to create snapshot. Response:"
             echo "$COMMIT_JSON" | jq '.' || echo "$COMMIT_JSON"
             exit 1
           fi
-          echo "Snapshot created successfully: $SNAPSHOT_ID"
+          echo "Commit created successfully: $COMMIT_ID"
+          echo "Waiting for commit to complete and become available as snapshot..."
+          # Wait for commit to be ready (status changes from INIT to CREATED)
+          SNAPSHOT_ID=""
+          for i in {1..30}; do
+            COMMITS_JSON=$(guepard list -x "$BASE_DEPLOYMENT_ID" commits --json || true)
+            COMMIT_DATA=$(echo "$COMMITS_JSON" | jq -r ".[] | select(.commit_id == \"$COMMIT_ID\")" | head -n 1)
+            COMMIT_STATUS=$(echo "$COMMIT_DATA" | jq -r '.status // empty')
+            if [ "$COMMIT_STATUS" = "CREATED" ]; then
+              # Try to get snapshot_id from commit data, fallback to commit_id
+              SNAPSHOT_ID=$(echo "$COMMIT_DATA" | jq -r '.snapshot_id // .commit_id // empty')
+              if [ -z "$SNAPSHOT_ID" ] || [ "$SNAPSHOT_ID" = "null" ]; then
+                SNAPSHOT_ID="$COMMIT_ID"
+              fi
+              echo "Commit is ready (status: CREATED), snapshot_id: $SNAPSHOT_ID"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "Warning: Commit did not reach CREATED status in time, using commit_id as snapshot_id"
+              SNAPSHOT_ID="$COMMIT_ID"
+            else
+              echo "Attempt $i/30: Commit status is $COMMIT_STATUS, waiting 2s..."
+              sleep 2
+            fi
+          done
+          if [ -z "$SNAPSHOT_ID" ]; then
+            SNAPSHOT_ID="$COMMIT_ID"
+          fi
+          echo "Using snapshot_id: $SNAPSHOT_ID"
           echo "SNAPSHOT_ID=$SNAPSHOT_ID" >> "$GITHUB_ENV"
           echo "snapshot_id=$SNAPSHOT_ID" >> "$GITHUB_OUTPUT"
 
