@@ -177,17 +177,23 @@ jobs:
           CLONE_JSON=$(guepard clone -x "$BASE_DEPLOYMENT_ID" -s "$SNAPSHOT_ID" --json)
           echo "$CLONE_JSON" | jq '.' > /tmp/clone.json
           CLONE_DEPLOYMENT_ID=$(echo "$CLONE_JSON" | jq -r '.deployment.id')
-          CONNECTION_STRING=$(echo "$CLONE_JSON" | jq -r '.compute.connection_string')
-          if [ -z "$CLONE_DEPLOYMENT_ID" ] || [ -z "$CONNECTION_STRING" ]; then
-            echo "Failed to capture clone deployment id or connection string"
+          CONNECTION_STRING=$(echo "$CLONE_JSON" | jq -r '.compute.connection_string // empty')
+          if [ -z "$CLONE_DEPLOYMENT_ID" ]; then
+            echo "Failed to capture clone deployment id"
             exit 1
           fi
+          if [ -z "$CONNECTION_STRING" ] || [ "$CONNECTION_STRING" = "null" ]; then
+            echo "Warning: connection_string not available in clone response, will fetch after compute is healthy"
+          else
+            echo "Connection string captured from clone response"
+            echo "DB_CONNECTION_STRING=$CONNECTION_STRING" >> "$GITHUB_ENV"
+            echo "db_connection_string=$CONNECTION_STRING" >> "$GITHUB_OUTPUT"
+          fi
           echo "CLONE_DEPLOYMENT_ID=$CLONE_DEPLOYMENT_ID" >> "$GITHUB_ENV"
-          echo "DB_CONNECTION_STRING=$CONNECTION_STRING" >> "$GITHUB_ENV"
           echo "clone_deployment_id=$CLONE_DEPLOYMENT_ID" >> "$GITHUB_OUTPUT"
-          echo "db_connection_string=$CONNECTION_STRING" >> "$GITHUB_OUTPUT"
 
-      - name: Wait for clone compute to be healthy
+      - name: Wait for clone compute to be healthy and ensure connection string
+        id: compute_ready
         run: |
           set -e
           eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
@@ -198,6 +204,20 @@ jobs:
             HEALTHY=$(echo "$STATUS_JSON" | jq -r '.status // empty')
             if [ "$HEALTHY" = "Healthy" ]; then
               echo "Compute is healthy."
+              if [ -z "${DB_CONNECTION_STRING:-}" ] || [ "${DB_CONNECTION_STRING:-}" = "null" ]; then
+                CONNECTION_STRING=$(echo "$STATUS_JSON" | jq -r '.connection_string // empty')
+                if [ -n "$CONNECTION_STRING" ] && [ "$CONNECTION_STRING" != "null" ]; then
+                  echo "DB_CONNECTION_STRING=$CONNECTION_STRING" >> "$GITHUB_ENV"
+                  echo "db_connection_string=$CONNECTION_STRING" >> "$GITHUB_OUTPUT"
+                  echo "Connection string captured from compute status"
+                else
+                  echo "Error: connection_string still not available after compute is healthy"
+                  exit 1
+                fi
+              else
+                echo "Connection string already set from clone response"
+              fi
+              echo "Final connection string: ${DB_CONNECTION_STRING:0:50}..."
               exit 0
             fi
             echo "Attempt $i/12: compute not healthy yet (status: $HEALTHY). Sleeping 10s..."
@@ -217,7 +237,13 @@ jobs:
           DATABASE_URL: ${{ env.DB_CONNECTION_STRING }}
         working-directory: components/api
         run: |
+          if [ -z "$DATABASE_URL" ] || [ "$DATABASE_URL" = "null" ]; then
+            echo "Error: DATABASE_URL is not set or is null"
+            exit 1
+          fi
           echo "Applying Prisma migrations to clone database..."
+          echo "Using DATABASE_URL: ${DATABASE_URL:0:60}..."
+          export DATABASE_URL
           bunx prisma migrate deploy
 
       - name: Seed data with new format after migrations
@@ -225,7 +251,13 @@ jobs:
           DATABASE_URL: ${{ env.DB_CONNECTION_STRING }}
         working-directory: components/api
         run: |
+          if [ -z "$DATABASE_URL" ] || [ "$DATABASE_URL" = "null" ]; then
+            echo "Error: DATABASE_URL is not set or is null"
+            exit 1
+          fi
           echo "Seeding test data with new format..."
+          echo "Using DATABASE_URL: ${DATABASE_URL:0:60}..."
+          export DATABASE_URL
           bunx prisma generate
           bun run prisma/integration/seed.ts
 
@@ -235,7 +267,12 @@ jobs:
           DATABASE_URL: ${{ env.DB_CONNECTION_STRING }}
         working-directory: components/api
         run: |
-          echo "Running Prisma DB invariants tests against $DATABASE_URL"
+          if [ -z "$DATABASE_URL" ] || [ "$DATABASE_URL" = "null" ]; then
+            echo "Error: DATABASE_URL is not set or is null"
+            exit 1
+          fi
+          echo "Running Prisma DB invariants tests against ${DATABASE_URL:0:60}..."
+          export DATABASE_URL
           pnpm test:db
 
       - name: CI summary - database
