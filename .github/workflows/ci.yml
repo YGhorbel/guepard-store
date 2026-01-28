@@ -199,7 +199,7 @@ jobs:
           eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
           echo "Waiting for compute of clone deployment $CLONE_DEPLOYMENT_ID to be healthy..."
           for i in {1..12}; do
-            STATUS_JSON=$(guepard compute status -x "$CLONE_DEPLOYMENT_ID" --json || true)
+            STATUS_JSON=$(guepard compute -x "$CLONE_DEPLOYMENT_ID" status --json || true)
             echo "$STATUS_JSON" | jq '.' || true
             HEALTHY=$(echo "$STATUS_JSON" | jq -r '.status // empty')
             if [ "$HEALTHY" = "Healthy" ]; then
