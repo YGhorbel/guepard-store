@@ -244,7 +244,9 @@ jobs:
           sleep 15
           for i in {1..20}; do
             STATUS_JSON=$(guepard compute -x "$CLONE_DEPLOYMENT_ID" status --json 2>&1 || echo '{"error": "command_failed"}')
-            if echo "$STATUS_JSON" | jq -e '.status' > /dev/null 2>&1; then
+            if echo "$STATUS_JSON" | grep -q "502\|Bad Gateway\|Internal server error"; then
+              echo "Attempt $i/20: Compute API returned error (still initializing), waiting 10s..."
+            elif echo "$STATUS_JSON" | jq -e '.status' > /dev/null 2>&1; then
               HEALTHY=$(echo "$STATUS_JSON" | jq -r '.status // empty')
               if [ "$HEALTHY" = "Healthy" ]; then
                 echo "Compute is healthy."
@@ -257,10 +259,11 @@ jobs:
                 fi
                 echo "Final connection string: $(echo "$DB_CONNECTION_STRING" | cut -c1-50)..."
                 exit 0
-            elif echo "$STATUS_JSON" | grep -q "502\|Bad Gateway\|Internal server error"; then
-              echo "Attempt $i/20: Compute API returned error (still initializing), waiting 10s..."
+              else
+                echo "Attempt $i/20: Compute status is '$HEALTHY', waiting 10s..."
+              fi
             else
-              echo "Attempt $i/20: Compute status: $(echo "$STATUS_JSON" | head -c 100)..."
+              echo "Attempt $i/20: Unexpected response format: $(echo "$STATUS_JSON" | head -c 100)..."
             fi
             sleep 10
           done
