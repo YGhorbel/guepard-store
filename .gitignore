@@ -25,8 +25,6 @@ components/api/.env
 
 # Prisma generated client
 components/api/.prisma/client/
-# Temporary demo migration 
-components/api/prisma/migrations/*
 
 # ==================================
 # Frontend - (components/frontend)
