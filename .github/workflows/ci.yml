@@ -157,6 +157,11 @@ jobs:
           echo "BASE_DEPLOYMENT_ID=$BASE_DEPLOYMENT_ID" >> "$GITHUB_ENV"
           echo "base_deployment_id=$BASE_DEPLOYMENT_ID" >> "$GITHUB_OUTPUT"
 
+      - name: Start compute for base deployment
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          guepard compute start -x "$BASE_DEPLOYMENT_ID" || true
+
       - name: Get main branch ID
         id: branch
         run: |
@@ -241,6 +246,11 @@ jobs:
           fi
           echo "CLONE_DEPLOYMENT_ID=$CLONE_DEPLOYMENT_ID" >> "$GITHUB_ENV"
           echo "clone_deployment_id=$CLONE_DEPLOYMENT_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Start compute for base deployment
+        run: |
+          eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+          guepard compute start -x "$CLONE_DEPLOYMENT_ID" || true
 
       - name: Wait for clone compute to be healthy
         id: compute_ready
