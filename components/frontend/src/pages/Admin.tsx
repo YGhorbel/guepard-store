@@ -78,14 +78,30 @@ const Admin = () => {
     onError: (error) => onError(error, "Failed to delete product"),
   });
 
-  const handleSubmit = (data: Partial<Product> & { category_id?: string; image_url?: string }) => {
+  const handleSubmit = (data: Partial<Product> & { 
+    category_id?: string; 
+    image_url?: string;
+    images?: string[];
+    variants?: Array<{
+      sku?: string;
+      size?: string;
+      color?: string;
+      material?: string;
+      price?: number;
+      stock: number;
+      imageUrl?: string;
+      isDefault?: boolean;
+    }>;
+  }) => {
     const productDataForApi = {
       name: data.name!,
       description: data.description!,
       price: data.price!,
       stock: data.stock!,
-      imageUrl: data.image_url!,
+      imageUrl: data.image_url || data.images?.[0] || '',
       categoryId: data.category_id!,
+      images: data.images,
+      variants: data.variants,
     };
 
     if (editingProduct) {

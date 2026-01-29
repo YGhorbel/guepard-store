@@ -7,19 +7,45 @@ router.get('/', async (req, res) => {
   const { q, category } = req.query; 
 
   try {
-    const products = await prisma.product.findMany({
+    const baseArgs = {
       where: {
-        OR: q ? [
-          { name: { contains: q as string, mode: 'insensitive' } },
-          { description: { contains: q as string, mode: 'insensitive' } },
-        ] : undefined,
-        category: category ? {
-          slug: category as string
-        } : undefined
+        OR: q
+          ? [
+              { name: { contains: q as string, mode: 'insensitive' } },
+              { description: { contains: q as string, mode: 'insensitive' } },
+            ]
+          : undefined,
+        category: category
+          ? {
+              slug: category as string,
+            }
+          : undefined,
       },
       include: { category: true },
       orderBy: { createdAt: 'desc' },
-    });
+    };
+
+    // Feature-detect includes across Guepard branches.
+    // If the generated Prisma client doesn't have a relation, Prisma will throw.
+    const candidates: any[] = [
+      { ...baseArgs, include: { ...baseArgs.include, variants: true, images: { orderBy: { order: 'asc' } } } },
+      { ...baseArgs, include: { ...baseArgs.include, variants: true } },
+      { ...baseArgs, include: { ...baseArgs.include, images: { orderBy: { order: 'asc' } } } },
+      baseArgs,
+    ];
+
+    let products: any[] | undefined;
+    let lastError: any;
+    for (const args of candidates) {
+      try {
+        products = await (prisma.product as any).findMany(args);
+        break;
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    if (!products) throw lastError;
+
     res.json(products);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch products' });
@@ -29,16 +55,30 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    const product = await prisma.product.findUnique({
+    const baseArgs = {
       where: { id },
-      include: { 
-        category: true,
-        reviews: {
-          orderBy: { createdAt: 'desc' },
-          take: 5,
-        },
-      },
-    });
+      include: { category: true },
+    };
+
+    const candidates: any[] = [
+      { ...baseArgs, include: { ...baseArgs.include, variants: true, images: { orderBy: { order: 'asc' } } } },
+      { ...baseArgs, include: { ...baseArgs.include, variants: true } },
+      { ...baseArgs, include: { ...baseArgs.include, images: { orderBy: { order: 'asc' } } } },
+      baseArgs,
+    ];
+
+    let product: any | null = null;
+    let lastError: any;
+    for (const args of candidates) {
+      try {
+        product = await (prisma.product as any).findUnique(args);
+        break;
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    if (product === null && lastError) throw lastError;
+
     if (!product) {
       return res.status(404).json({ error: 'Product not found' });
     }

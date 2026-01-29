@@ -47,9 +47,23 @@ export const CartDialog = ({ isOpen, onOpenChange }: CartDialogProps) => {
   });
 
   const onFormSubmit = (data: z.infer<typeof shippingSchema>) => {
+    const cartItemsForApi = cartItems.map((item) => {
+      const variant = item.selectedVariantId
+        ? item.variants?.find((v) => v.id === item.selectedVariantId)
+        : undefined;
+      const displayPrice = variant?.price ?? item.price;
+
+      return {
+        id: item.id,
+        quantity: item.quantity,
+        price: displayPrice,
+        variantId: item.selectedVariantId,
+      };
+    });
+
     const orderPayload: OrderPayload = {
       clientInfo: { name: data.name, phone: data.phone, address: data.address },
-      cartItems: cartItems,
+      cartItems: cartItemsForApi,
     };
     checkoutMutation.mutate(orderPayload);
   };
@@ -68,25 +82,42 @@ export const CartDialog = ({ isOpen, onOpenChange }: CartDialogProps) => {
               
               {cartItems.length > 0 ? (
                 <div className="space-y-4">
-                  {cartItems.map((item) => (
-                    <div key={item.id} className="flex items-center gap-4">
-                      <img src={item.imageUrl ?? '/placeholder.svg'} alt={item.name} className="w-16 h-16 rounded-md object-cover" />
-                      <div className="flex-grow">
-                        <p className="font-semibold font-heading">{item.name}</p>
-                        <p className="text-sm text-muted-foreground">${item.price.toFixed(2)}</p>
+                  {cartItems.map((item) => {
+                    const variant = item.selectedVariantId 
+                      ? item.variants?.find(v => v.id === item.selectedVariantId)
+                      : undefined;
+                    const variantName = variant 
+                      ? `${variant.size ? `Size: ${variant.size}` : ''}${variant.color ? `${variant.size ? ', ' : ''}Color: ${variant.color}` : ''}`
+                      : '';
+                    const displayPrice = variant?.price ?? item.price;
+                    const displayImage = variant?.imageUrl || 
+                      item.images?.find(img => img.isPrimary)?.url ||
+                      item.images?.[0]?.url ||
+                      item.imageUrl;
+                    
+                    return (
+                      <div key={`${item.id}-${item.selectedVariantId || 'default'}`} className="flex items-center gap-4">
+                        <img src={displayImage ?? '/placeholder.svg'} alt={item.name} className="w-16 h-16 rounded-md object-cover" />
+                        <div className="flex-grow">
+                          <p className="font-semibold font-heading">{item.name}</p>
+                          {variantName && (
+                            <p className="text-xs text-muted-foreground">{variantName}</p>
+                          )}
+                          <p className="text-sm text-muted-foreground">${displayPrice.toFixed(2)}</p>
+                        </div>
+                        <Input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => updateQuantity(item.id, parseInt(e.target.value), item.selectedVariantId)}
+                          className="w-16 h-8 text-center"
+                          min="1"
+                        />
+                        <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id, item.selectedVariantId)}>
+                          <X className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <Input
-                        type="number"
-                        value={item.quantity}
-                        onChange={(e) => updateQuantity(item.id, parseInt(e.target.value))}
-                        className="w-16 h-8 text-center"
-                        min="1"
-                      />
-                      <Button variant="ghost" size="icon" onClick={() => removeFromCart(item.id)}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-center text-muted-foreground py-8">Your cart is empty.</p>

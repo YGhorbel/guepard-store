@@ -4,7 +4,6 @@ import cors from 'cors';
 import productRoutes from './routes/productRoutes';
 import categoryRoutes from './routes/categoryRoutes';
 import orderRoutes from './routes/orderRoutes';
-import reviewRoutes from './routes/reviewRoutes';
 
 const app = express();
 
@@ -32,6 +31,5 @@ app.use(express.json());
 app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/orders', orderRoutes);
-app.use('/api/reviews', reviewRoutes);
 
 export default app;

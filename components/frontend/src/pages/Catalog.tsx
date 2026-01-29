@@ -33,8 +33,8 @@ const Catalog = () => {
     queryFn: getCategories,
   });
 
-  const handleAddToCart = (product: Product) => {
-    addToCart(product);
+  const handleAddToCart = (product: Product, variantId?: string) => {
+    addToCart(product, variantId);
   };
 
   const handleCategoryFilter = (categorySlug: string) => {
